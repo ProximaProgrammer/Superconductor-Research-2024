@@ -14,8 +14,6 @@ import json
 
 #atomic mass, entropy, electron affinity
 dt1 = pd.read_csv('train.csv')
-#critical temperature, (charge carrier density)
-dt2 = pd.read_csv('T_c&P&Q&Debye.csv')
 #critical temperature, doping, pressure
 dt3 = pd.read_csv('SuperCon.csv')
 #critical temperature, electron-phonon coupling parameter
@@ -30,22 +28,17 @@ entropy = dt1['wtd_entropy_atomic_mass']
 radius = dt1['wtd_mean_atomic_radius']                                               
 affinity = dt1['mean_ElectronAffinity']                                              
 pressure = dt3['appliedPressure'] #pressure in VARIOUS UNITS　　　　　　　　　　　　　　　
-#put coupling into a list                     #take magnitudes of vector lists, match using rounded T_c
-
-#get DOS data (worry about later)
+#put electron-phonon coupling into a list & take magnitudes of vector lists, match using rounded T_c
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import r2_score
 
-#use gaussian approximation to fill in P values for secondary enhanced analysis (but add disclaimer)
 
+# Note: When intersecting/mapping datasets, DO NOT CONFUSE PRESSURE-APPLIED T_C WITH NATURAL (1 atm) T_C
 
-# Note: When intersecting/mapping datasets, DO NOT USE PRESSURE-APPLIED T_C <==> NATURAL T_C
-# Use planned algorithm to match & intersect [training] with [SuperCon]
-
-#match datasets using mean atomic mass
+#match datasets using mean atomic mass (VERY low chance of coincidence if using decimals)
 atomic_masses = {
     "H": 1.008,
     "He": 4.003,
@@ -165,6 +158,7 @@ atomic_masses = {
     "Lv": 293.000,
     "Ts": 294.000,
     "Og": 294.000}
+
 def mean_molecular_mass(formula):
     pattern = r'([A-Z][a-z]?)\s*([0-9]*\.?[0-9]*)'
     matches = re.findall(pattern, formula)
@@ -243,7 +237,7 @@ E_actual = []
 R_actual = []
 EA_actual = []
 T_atm_actual = []
-#EPhC_actual = []
+#EPhC_actual = [] #for electron-phonon coupling
 
 total_len = 0
 matchez = []
