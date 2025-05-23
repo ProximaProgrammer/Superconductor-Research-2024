@@ -8,8 +8,6 @@ import csv
 
 data = pd.read_csv('coefficientsV9.csv')
 parameters = pd.read_csv('superconductorV7.csv')
-parameters = parameters.drop(columns=["T_exp"])
-parameters = parameters.drop(columns=["T_atm"])
 
 Terms,coef = data['Term'][1:], data['Coefficient'][1:] #add constant terms back later
 
@@ -117,7 +115,7 @@ def find_high_tc_points(terms: List[Tuple[float, str]], n_vars: int, n_attempts=
             x = x_new
             prev_grad_norm = grad_norm
     
-    # Sort by Tc value and return top 10
+    # Sort by T_c value and return top 10
     candidate_points.sort(key=lambda p: p[0], reverse=True)
     return candidate_points[:10]
 
@@ -162,20 +160,13 @@ import csv
 
 # --- Load data ---
 data = pd.read_csv('coefficientsV9.csv')
-parameters = pd.read_csv('superconductorV7.csv')
-parameters = parameters.drop(columns=["T_exp", "T_atm"])
-
-Terms,coef = data['Term'][1:], data['Coefficient'][1:]
 
 def denormalize(x):
     return x * np.array([10, 125, 1.3, 0.7, 100]) + np.array([0, 10, 0, 0.9, 30])
-
 def normalize(x):
     return (x - np.array([0, 10, 0, 0.9, 30])) * np.array([1/10, 1/125, 1/1.3, 1/0.7, 1/100])
 
-Terms_raw = data['Term'].values[1:]  # skip constant term for now
-coef_raw = data['Coefficient'].values[1:]
-Terms = [(float(coef_raw[i]), Terms_raw[i]) for i in range(len(coef_raw))]  # combine coefficients with term strings
+Terms,coef = data['Term'][1:], data['Coefficient'][1:] #temporarily ignoring constant term
 
 # --- Polynomial evaluation ---
 def evaluate_poly(x, terms):
@@ -191,6 +182,18 @@ def evaluate_poly(x, terms):
             term_val *= x.iloc[var] ** power
         result += term_val
     return result
+
+def evaluate_poly(x, terms):
+    result = 0
+    for coeff, term_str in terms:
+        term_val = coeff*10**-30 #temporary reduction to prevent overflow errors
+        for part in term_str.split():
+            var = int(part[1:].split('^')[0])
+            power = int(part.split('^')[1]) if '^' in part else 1
+            term_val *= x.iloc[var] ** power
+        result += term_val
+    return result
+
 
 def evaluate_poly_normalized(x_norm, terms):
     x_real = pd.Series(denormalize(x_norm))
@@ -233,8 +236,8 @@ def numerical_hessian(x, terms, h=1e-5):
 def is_maximum(hessian: np.ndarray) -> bool:
     return np.all(np.linalg.eigvals(hessian) < 0)
 
-# --- Gradient ascent search ---
-def find_high_tc_points(terms: List[Tuple[float, str]], n_vars: int, n_attempts=500, tol=1e-12, max_iter=1000):
+# --- Gradient ascent search --- (normalized gradient ~ 10^-30 * 10*(1/0.5 * 6) ~ 10^-29)
+def find_high_tc_points(terms: List[Tuple[float, str]], n_vars: int, n_attempts=500, tol=1e-29, max_iter=1000):
     candidate_points = []
     for attempt in range(n_attempts):
         x = np.abs(np.random.rand(n_vars)) #generates entries randomly between 0 and 1
@@ -258,7 +261,7 @@ def find_high_tc_points(terms: List[Tuple[float, str]], n_vars: int, n_attempts=
                 tc_value = evaluate_poly(x_real, terms)
                 hessian = numerical_hessian(x, terms)
                 eigenvals = np.linalg.eigvals(hessian)
-                if not any(np.linalg.norm(x - p[0]) < tol * 10 for p in candidate_points):
+                if not any(np.linalg.norm(x - p[0]) < tol for p in candidate_points):
                     candidate_points.append([x_real.copy(), np.sign(np.diag(hessian)), eigenvals, tc_value])
                     print(f"Appended point #{len(candidate_points)}")
                 break
@@ -271,12 +274,10 @@ def find_high_tc_points(terms: List[Tuple[float, str]], n_vars: int, n_attempts=
             break
 
     #candidate_points.sort(key=lambda p: p.iloc[0], reverse=True)   #debug later
-    return candidate_points[:3] #replace 3 with 10 or another num
+    return candidate_points[:3] #replace top 3 with top 10 or another num
 
 # Run search and output results
 critical_pts = find_high_tc_points(Terms, 5)
-
-Terms = [(coef[i],Terms[i]) for i in range(1,len(coef))]
 
 for num,pt in enumerate(critical_pts):
     print(num, f"-th Critical point found at:\n {pt[0]}")
