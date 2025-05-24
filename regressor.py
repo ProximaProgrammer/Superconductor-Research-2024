@@ -134,7 +134,7 @@ def numerical_hessian(x, h=1e-5):
 def is_maximum(hessian: np.ndarray) -> bool:
     return np.all(np.linalg.eigvals(hessian) < 0)
 
-# --- Gradient Descent search --- (normalized gradient ~ 10*(1/0.5 * 6) ~ 10)
+# --- Gradient Descent search --- (normalized gradient ~ 10*(1/0.5 * 6) ~ 10, so tolerance should be a bit lower)
 def find_high_tc_points(n_vars: int, n_attempts=500, tol=1, max_iter=1000):
     candidate_points = []
     X_samples = np.column_stack([x1, x2, x3, x4, x5])
@@ -186,10 +186,10 @@ def find_high_tc_points(n_vars: int, n_attempts=500, tol=1, max_iter=1000):
                     print(f"Appended point #{len(candidate_points)}")
                 break
 
-        if len(candidate_points) >= 10: #change to 50 in final version
+        if len(candidate_points) >= 50:
             break
 
-    return candidate_points[:10]
+    return candidate_points
 
 # Run search and output results
 critical_pts = find_high_tc_points(5)
@@ -254,13 +254,5 @@ for i in range(691):
         #C2.append(c)
         C2.append((c-(4.854683252174617))**2)
         C1.append((c**2))
-
-#RRMSE calculation
-print(math.sqrt(sum(C1)/counted))
-print(sum(C2)/sum(C1))
-
-#Note: predict new superconductors from list of confirmed superconductors but with no recorded T_c, and also arbitrary materials separately
-#Note: to keep everything the same pressure, use the gaussian approximation for pressure to enter in data for T_c. 
-#          train.csv includes 1 atm T_c
 
 '''
