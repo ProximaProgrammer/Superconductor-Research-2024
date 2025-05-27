@@ -37,6 +37,7 @@ def polynomial_regression(xx1, xx2, xx3, xx4, xx5, y, DEG):
     print(DEG, "RRMSE:", rrmse)
 
     # plotting for a general idea
+
     # x1_smooth = np.linspace(xx1.min(), xx1.max(), 200)
     # X_smooth = np.column_stack([
     #     x1_smooth,
@@ -92,8 +93,6 @@ def evaluate_poly(x):
     x = poly.transform(x)
     return reg.predict(x)
 
-# below, fix the (DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, 
-# and will error in future. Ensure you extract a single element from your array before performing this operation)
 def evaluate_poly_normalized(x_norm): 
     x_real = pd.Series(denormalize(x_norm))
     return evaluate_poly(x_real)
@@ -134,7 +133,7 @@ def numerical_hessian(x, h=1e-5):
 def is_maximum(hessian: np.ndarray) -> bool:
     return np.all(np.linalg.eigvals(hessian) < 0)
 
-# --- Gradient Descent search --- (normalized gradient ~ 10*(1/0.5 * 6) ~ 10, so tolerance should be a bit lower)
+# --- Gradient Descent search --- (normalized gradient ~ 10*(1/0.5 * 6) ~ 10)
 def find_high_tc_points(n_vars: int, n_attempts=500, tol=1, max_iter=1000):
     candidate_points = []
     X_samples = np.column_stack([x1, x2, x3, x4, x5])
@@ -142,9 +141,9 @@ def find_high_tc_points(n_vars: int, n_attempts=500, tol=1, max_iter=1000):
     for attempt in range(n_attempts):
         i = np.random.randint(0, len(X_samples))
         x_start = normalize(X_samples[i])
-        x_start[0] = random.uniform(0,1) #restrict to desired pressure range
+        x_start[0] = random.uniform(0,1) #restricting to desired pressure range
 
-        rel_deviation = 0.000000001
+        rel_deviation = 0.0000000001 #change to a value of your liking that still yields reasonable values
         deviation = rel_deviation*np.array([10*101325, 125, 1.3, 0.7, 100]) #for reasonable output, search around tested points
 
         x = x_start.copy()
@@ -159,7 +158,7 @@ def find_high_tc_points(n_vars: int, n_attempts=500, tol=1, max_iter=1000):
 
             x_new = x + alpha * grad
 
-            # Clamp to both normalized bounds and local range constraint
+            # Clamp to both normalized bounds and 'neighborhood' range constraint
             x_new = np.clip(x_new, x_start - deviation, x_start + deviation)
             x_new = np.clip(x_new, 0, 1)
             tc_new = evaluate_poly(pd.Series(denormalize(x_new)))
@@ -180,9 +179,11 @@ def find_high_tc_points(n_vars: int, n_attempts=500, tol=1, max_iter=1000):
                 hessian = numerical_hessian(x)
                 eigenvals = np.linalg.eigvals(hessian)
                 neg_count = np.sum(eigenvals < 0)
+                concavity_signs = np.sign(np.diag(hessian))
 
-                if tc_value > 0 and not any(np.linalg.norm(x - p[0]) < tol for p in candidate_points):
-                    candidate_points.append([x_real.copy(), np.sign(np.diag(hessian)), eigenvals, tc_value, neg_count])
+                #want either a local maximum in the majority of the variables or a neighborhood maximum via gradient descent
+                if tc_value > 0 and ((not any(np.linalg.norm(x - p[0]) > tol for p in candidate_points)) or ((concavity_signs==-1).sum()>3)):
+                    candidate_points.append([x_real.copy(), concavity_signs, eigenvals, tc_value, neg_count])
                     print(f"Appended point #{len(candidate_points)}")
                 break
 
@@ -254,5 +255,13 @@ for i in range(691):
         #C2.append(c)
         C2.append((c-(4.854683252174617))**2)
         C1.append((c**2))
+
+#RRMSE calculation
+print(math.sqrt(sum(C1)/counted))
+print(sum(C2)/sum(C1))
+
+#Note: predict new superconductors from list of confirmed superconductors but with no recorded T_c, and also arbitrary materials separately
+#Note: to keep everything the same pressure, use the gaussian approximation for pressure to enter in data for T_c. 
+#          train.csv includes 1 atm T_c
 
 '''
