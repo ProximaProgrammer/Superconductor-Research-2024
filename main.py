@@ -1,4 +1,4 @@
-#Correct python interpreter: usr/local/bin
+#this synthesizes the data from all the other datasets into a usable and standard format for regressor.py to use
 from statistics import LinearRegression
 import matplotlib
 import seaborn as sns
